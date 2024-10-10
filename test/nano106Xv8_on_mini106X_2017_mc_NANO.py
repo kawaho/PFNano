@@ -93,11 +93,11 @@ from PhysicsTools.PFNano.pfnano_cff import PFnano_customizeMC, PFnano_customizeM
 #call to customisation function PFnano_customizeMC imported from PhysicsTools.PFNano.pfnano_cff
 # manually added DeepJet customisation
 #process = PFnano_customizeMC(process)
-process = PFnano_customizeMC_add_DeepJet(process)
+#process = PFnano_customizeMC_add_DeepJet(process)
 #process = PFnano_customizeMC_allPF(process)
 #process = PFnano_customizeMC_allPF_add_DeepJet(process)
 #process = PFnano_customizeMC_AK4JetsOnly(process)
-#process = PFnano_customizeMC_AK4JetsOnly_add_DeepJet(process)
+process = PFnano_customizeMC_AK4JetsOnly_add_DeepJet(process)
 #process = PFnano_customizeMC_AK8JetsOnly(process)
 #process = PFnano_customizeMC_noInputs(process)
 

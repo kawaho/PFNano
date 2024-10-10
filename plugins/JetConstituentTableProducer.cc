@@ -41,14 +41,17 @@ public:
 private:
   void produce(edm::Event &, const edm::EventSetup &) override;
 
+  bool isBAncestor(const reco::Candidate &particle);
+
   typedef reco::VertexCollection VertexCollection;
   //=====
   typedef reco::VertexCompositePtrCandidateCollection SVCollection;
 
-  //const std::string name_;
   const std::string name_;
+  const std::string name_in_evt;
   const std::string nameSV_;
   const std::string idx_name_;
+  const std::string sv_idx_name_;
   const std::string idx_nameSV_;
   const bool readBtag_;
   const double jet_radius_;
@@ -56,10 +59,12 @@ private:
   edm::EDGetTokenT<edm::View<T>> jet_token_;
   edm::EDGetTokenT<VertexCollection> vtx_token_;
   edm::EDGetTokenT<reco::CandidateView> cand_token_;
+//  edm::EDGetTokenT<reco::CandidateView> pfcand_token_;
   edm::EDGetTokenT<SVCollection> sv_token_;
 
   edm::Handle<VertexCollection> vtxs_;
   edm::Handle<reco::CandidateView> cands_;
+//  edm::Handle<reco::CandidateView> pfcands_;
   edm::Handle<SVCollection> svs_;
   edm::ESHandle<TransientTrackBuilder> track_builder_;
 
@@ -73,32 +78,53 @@ private:
 template< typename T>
 JetConstituentTableProducer<T>::JetConstituentTableProducer(const edm::ParameterSet &iConfig)
     : name_(iConfig.getParameter<std::string>("name")),
+      name_in_evt(iConfig.getParameter<std::string>("name_in_evt")),
       nameSV_(iConfig.getParameter<std::string>("nameSV")),
       idx_name_(iConfig.getParameter<std::string>("idx_name")),
+      sv_idx_name_(iConfig.getParameter<std::string>("sv_idx_name")),
       idx_nameSV_(iConfig.getParameter<std::string>("idx_nameSV")),
       readBtag_(iConfig.getParameter<bool>("readBtag")),
       jet_radius_(iConfig.getParameter<double>("jet_radius")),
       jet_token_(consumes<edm::View<T>>(iConfig.getParameter<edm::InputTag>("jets"))),
       vtx_token_(consumes<VertexCollection>(iConfig.getParameter<edm::InputTag>("vertices"))),
       cand_token_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("candidates"))),
+//      pfcand_token_(consumes<reco::CandidateView>(iConfig.getParameter<edm::InputTag>("pfcandidates"))),
       sv_token_(consumes<SVCollection>(iConfig.getParameter<edm::InputTag>("secondary_vertices"))){
-  //produces<nanoaod::FlatTable>(name_);
+
   produces<nanoaod::FlatTable>(name_);
   produces<nanoaod::FlatTable>(nameSV_);
-  produces<std::vector<reco::CandidatePtr>>();
+  produces<std::vector<reco::CandidatePtr>>(name_in_evt);
 }
 
 template< typename T>
 JetConstituentTableProducer<T>::~JetConstituentTableProducer() {}
 
 template< typename T>
+bool JetConstituentTableProducer<T>::isBAncestor(const reco::Candidate &particle) {
+   //particle is already the B
+   if (((int)((abs(particle.pdgId()) / 100) % 10) == 5) || ((int)((abs(particle.pdgId()) / 1000) % 10) == 5)) return true;
+   //if (abs(particle.pdgId()) == 5) return true;
+
+   //otherwise loop on mothers, if any and return true if the B ancestor is found
+   for (size_t i = 0; i < particle.numberOfMothers(); i++) {
+      if (isBAncestor(*particle.mother(i))) return true;
+                                        
+   }
+
+   return false;
+}
+
+
+template< typename T>
 void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::EventSetup &iSetup) {
   // elements in all these collections must have the same order!
   auto outCands = std::make_unique<std::vector<reco::CandidatePtr>>();
   auto outSVs = std::make_unique<std::vector<const reco::VertexCompositePtrCandidate *>> ();
-  std::vector<int> jetIdx_pf, jetIdx_sv, pfcandIdx, svIdx;
+  std::vector<int> jetIdx_pf, jetIdx_sv, pfcandIdx, svcandIdx, svIdx;
+  std::vector<int> from_b;
   // PF Cands
-  std::vector<float> btagEtaRel, btagPtRatio, btagPParRatio, btagSip3dVal, btagSip3dSig, btagJetDistVal, cand_pt;
+  std::vector<float> btagEtaRel, btagPtRatio, btagPParRatio, btagSip3dVal, btagSip3dSig, btagJetDistVal, btagTrackDeltaR, btagSip2dVal, btagSip2dSig, btagTrackJetDecayLen, cand_pt;
+
   // Secondary vertices
   std::vector<float> sv_mass, sv_pt, sv_ntracks, sv_chi2, sv_normchi2, sv_dxy, sv_dxysig, sv_d3d, sv_d3dsig, sv_costhetasvpv;
   std::vector<float> sv_ptrel, sv_phirel, sv_deltaR, sv_enratio;
@@ -106,6 +132,7 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
   auto jets = iEvent.getHandle(jet_token_);
   iEvent.getByToken(vtx_token_, vtxs_);
   iEvent.getByToken(cand_token_, cands_);
+//  iEvent.getByToken(pfcand_token_, pfcands_);
   iEvent.getByToken(sv_token_, svs_);
 
   if(readBtag_){
@@ -147,13 +174,14 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
       if (svInNewList == allSVs.end()) {
         // continue;
         svIdx.push_back(-1);
-      } else{
+      } else {
         svIdx.push_back(svInNewList - allSVs.begin());
       }
       outSVs->push_back(sv);
       jetIdx_sv.push_back(i_jet);
       if (readBtag_ && !vtxs_->empty()) {
-        // Jet independent
+
+	// Jet independent
         sv_mass.push_back(sv->mass());
         sv_pt.push_back(sv->pt());
 
@@ -189,7 +217,29 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
       jetIdx_pf.push_back(i_jet);
       pfcandIdx.push_back(candInNewList - candPtrs.begin());
       cand_pt.push_back(cand->pt());
+
+      if (!readBtag_) {
+         if (isBAncestor(*cand)) {
+           from_b.push_back(1);
+         } else {
+           from_b.push_back(0);
+         }
+      }
+
       if (readBtag_ && !vtxs_->empty()) {
+         svcandIdx.push_back(-1);
+         if (cand->charge() != 0) {
+           for (size_t jetSVs_index = 0; jetSVs_index < jetSVs.size(); ++jetSVs_index) {
+             std::vector<reco::CandidatePtr> const & sv_daughters = jetSVs[jetSVs_index]->daughterPtrVector();
+             auto candInNewList = std::find( sv_daughters.begin(), sv_daughters.end(), cand );
+             if ( candInNewList == sv_daughters.end() ) {
+               continue;
+             } else {
+                // std::cout << "Found SV candidate : " << cand.id() << ", " << cand.key() << ", pt = " << cand->pt() << std::endl;
+                svcandIdx.back() = jetSVs_index;
+             }
+           }
+        }
         if ( cand.isNull() ) continue;
         auto const *packedCand = dynamic_cast <pat::PackedCandidate const *>(cand.get());
         if ( packedCand == nullptr ) continue;
@@ -199,16 +249,25 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
           btagEtaRel.push_back(trkinfo.getTrackEtaRel());
           btagPtRatio.push_back(trkinfo.getTrackPtRatio());
           btagPParRatio.push_back(trkinfo.getTrackPParRatio());
+          btagSip2dVal.push_back(trkinfo.getTrackSip2dVal());
+          btagSip2dSig.push_back(trkinfo.getTrackSip2dSig());
           btagSip3dVal.push_back(trkinfo.getTrackSip3dVal());
           btagSip3dSig.push_back(trkinfo.getTrackSip3dSig());
           btagJetDistVal.push_back(trkinfo.getTrackJetDistVal());
+          btagTrackDeltaR.push_back(trkinfo.getTrackDeltaR());
+          btagTrackJetDecayLen.push_back(trkinfo.getTrackJetDecayLen());
+
         } else {
                 btagEtaRel.push_back(0);
                 btagPtRatio.push_back(0);
                 btagPParRatio.push_back(0);
                 btagSip3dVal.push_back(0);
                 btagSip3dSig.push_back(0);
+                btagSip2dVal.push_back(0);
+                btagSip2dSig.push_back(0);
                 btagJetDistVal.push_back(0);
+                btagTrackDeltaR.push_back(0);
+                btagTrackJetDecayLen.push_back(0);
         }
       }
     }  // end jet loop
@@ -219,13 +278,20 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
   candTable->addColumn<int>(idx_name_, pfcandIdx, "Index in the candidate list", nanoaod::FlatTable::IntColumn);
   candTable->addColumn<int>("jetIdx", jetIdx_pf, "Index of the parent jet", nanoaod::FlatTable::IntColumn);
   if (readBtag_) {
+    candTable->addColumn<int>(sv_idx_name_, svcandIdx, "Index of candidate in the jetSVs list", nanoaod::FlatTable::IntColumn);
     candTable->addColumn<float>("pt", cand_pt, "pt", nanoaod::FlatTable::FloatColumn, 10);  // to check matchind down the line
     candTable->addColumn<float>("btagEtaRel", btagEtaRel, "btagEtaRel", nanoaod::FlatTable::FloatColumn, 10);
     candTable->addColumn<float>("btagPtRatio", btagPtRatio, "btagPtRatio", nanoaod::FlatTable::FloatColumn, 10);
     candTable->addColumn<float>("btagPParRatio", btagPParRatio, "btagPParRatio", nanoaod::FlatTable::FloatColumn, 10);
     candTable->addColumn<float>("btagSip3dVal", btagSip3dVal, "btagSip3dVal", nanoaod::FlatTable::FloatColumn, 10);
     candTable->addColumn<float>("btagSip3dSig", btagSip3dSig, "btagSip3dSig", nanoaod::FlatTable::FloatColumn, 10);
+    candTable->addColumn<float>("btagSip2dVal", btagSip2dVal, "btagSip2dVal", nanoaod::FlatTable::FloatColumn, 10);
+    candTable->addColumn<float>("btagSip2dSig", btagSip2dSig, "btagSip2dSig", nanoaod::FlatTable::FloatColumn, 10);
     candTable->addColumn<float>("btagJetDistVal", btagJetDistVal, "btagJetDistVal", nanoaod::FlatTable::FloatColumn, 10);
+    candTable->addColumn<float>("btagTrackDeltaR", btagTrackDeltaR, "btagTrackDeltaR", nanoaod::FlatTable::FloatColumn, 10);
+    candTable->addColumn<float>("btagTrackJetDecayLen", btagTrackJetDecayLen, "btagTrackJetDecayLen", nanoaod::FlatTable::FloatColumn, 10);
+  } else {
+    candTable->addColumn<int>("isbProduct", from_b, "True if ancestor is a b hadron", nanoaod::FlatTable::IntColumn);
   }
   iEvent.put(std::move(candTable), name_);
 
@@ -253,21 +319,25 @@ void JetConstituentTableProducer<T>::produce(edm::Event &iEvent, const edm::Even
   }
   iEvent.put(std::move(svTable), nameSV_);
 
-  iEvent.put(std::move(outCands));
+  iEvent.put(std::move(outCands), name_in_evt);
+
 }
 
 template< typename T>
 void JetConstituentTableProducer<T>::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<std::string>("name", "JetPFCands");
+  desc.add<std::string>("name_in_evt", "JetPFCands");
   desc.add<std::string>("nameSV", "JetSV");
   desc.add<std::string>("idx_name", "candIdx");
+  desc.add<std::string>("sv_idx_name", "svcandIdx");
   desc.add<std::string>("idx_nameSV", "svIdx");
   desc.add<double>("jet_radius", true);
   desc.add<bool>("readBtag", true);
   desc.add<edm::InputTag>("jets", edm::InputTag("slimmedJetsAK8"));
   desc.add<edm::InputTag>("vertices", edm::InputTag("offlineSlimmedPrimaryVertices"));
   desc.add<edm::InputTag>("candidates", edm::InputTag("packedPFCandidates"));
+//  desc.add<edm::InputTag>("pfcandidates", edm::InputTag("packedPFCandidates"));
   desc.add<edm::InputTag>("secondary_vertices", edm::InputTag("slimmedSecondaryVertices"));
   descriptions.addWithDefaultLabel(desc);
 }
