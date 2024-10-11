@@ -1,0 +1,24 @@
+campaign:
+  name: 'test'  # irrelevant
+  crab_template: template_crab.py
+
+  # User specific
+  workArea: testing_yml
+  storageSite: T3_US_Brown
+  outLFNDirBase: /store/user/kaho/blund/2018
+  voGroup:
+
+  # Campaign specific
+  tag_extension: PFNano # Will get appended after the current tag
+  tag_mod: # Will modify name in-place for MC eg. "PFNanoAODv1" will replace MiniAODv2 -> PFNanoAODv1
+  publication: False
+  config: nano_data_2018_UL_NANO.py
+  # Specify if running on data
+  data: True
+  lumiMask: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt # json file
+  # datasets will take either a list of DAS names or a text file containing them
+  datasets: |
+    /SingleMuon/Run2018A-UL2018_MiniAODv2-v3/MINIAOD
+    /SingleMuon/Run2018B-UL2018_MiniAODv2-v2/MINIAOD
+    /SingleMuon/Run2018C-UL2018_MiniAODv2-v2/MINIAOD
+    /SingleMuon/Run2018D-UL2018_MiniAODv2-v3/MINIAOD

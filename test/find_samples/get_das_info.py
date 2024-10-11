@@ -53,6 +53,11 @@ for year, campaign in campaigns.items():
       missing_samples[year].append(MC_name)
   with open("MiniAODUL_%s_MC.json"%year, 'w') as f:
     json.dump(allsamples, f, indent=4, sort_keys=True)
+  with open("MiniAODUL_%s_MC.txt"%year, 'w') as f:
+    for sample in allsamples:
+      for path in allsamples[sample]:
+        f.write(path+'\n')
+
 with open("MissingSamples.json", 'w') as f:
   json.dump(missing_samples, f, indent=4, sort_keys=True)
 
@@ -82,10 +87,22 @@ for year, campaign in campaigns.items():
  
     with open("MiniAODUL_2016preVFP_data.json", 'w') as f:
       json.dump(allsamplespreVFP, f, indent=4, sort_keys=True)
+    with open("MiniAODUL_2016preVFP_data.txt", 'w') as f:
+      for sample in allsamplespreVFP:
+        for path in allsamples[sample]:
+          f.write(path+'\n')
     with open("MiniAODUL_2016postVFP_data.json", 'w') as f:
       json.dump(allsamplespostVFP, f, indent=4, sort_keys=True)
+    with open("MiniAODUL_2016postVFP_data.txt", 'w') as f:
+      for sample in allsamplespostVFP:
+        for path in allsamples[sample]:
+          f.write(path+'\n')
   else:
     with open("MiniAODUL_%s_data.json"%year, 'w') as f:
       json.dump(allsamples, f, indent=4, sort_keys=True)
+    with open("MiniAODUL_%s_data.txt"%year, 'w') as f:
+      for sample in allsamples:
+        for path in allsamples[sample]:
+          f.write(path+'\n')
 
 
