@@ -4,6 +4,7 @@
   <use name="DataFormats/PatCandidates"/>
   <use name="DataFormats/VertexReco"/>
   <use name="DataFormats/NanoAOD"/>
+  <use name="DataFormats/JetReco"/>
   <use name="CommonTools/Utils"/>
   <use name="CommonTools/UtilAlgos"/>
   <use name="CommonTools/CandAlgos"/>

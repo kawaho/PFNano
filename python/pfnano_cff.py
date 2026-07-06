@@ -33,7 +33,7 @@ def PFnano_customizeMC(process):
     addPFCands(process, True)
     add_BTV(process, True, keepInputs=['DeepCSV','DDX'])
     addIFNFlavour(process, addReco=True, addGen=True, addGenAK8=True, useHadrons=True)
-    addIFNFlavourValidation(process)
+#    addIFNFlavourValidation(process)
     process.NANOAODSIMoutput.fakeNameForCrab = cms.untracked.bool(True)  # needed for crab publication
     return process
 

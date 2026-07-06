@@ -1,0 +1,87 @@
+--- nano_mc_2018_UL_NANO.py	2026-07-06 14:56:49.633061309 -0500
++++ nano_mc_2018_UL_NANO_skimmmm.py	2026-07-06 15:20:03.549843548 -0500
+@@ -44,6 +44,63 @@
+ )
+ 
+ # Output definition
++process.goodMuons = cms.EDFilter("PATMuonSelector",
++    src = cms.InputTag("slimmedMuons"),
++    cut = cms.string("pt > 10 && abs(eta) < 2.4 && passed('CutBasedIdTight')")
++)
++
++process.goodElectrons = cms.EDFilter("PATElectronSelector",
++    src = cms.InputTag("slimmedElectrons"),
++    cut = cms.string("pt > 10 && abs(eta) < 2.5 && !(abs(eta) > 1.4442 && abs(eta) < 1.566) && electronID('mvaEleID-Fall17-iso-V2-wp80')")
++)
++
++process.oneMuon = cms.EDFilter("CandViewCountFilter",
++    src = cms.InputTag("goodMuons"),
++    minNumber = cms.uint32(1)
++)
++
++process.oneElectron = cms.EDFilter("CandViewCountFilter",
++    src = cms.InputTag("goodElectrons"),
++    minNumber = cms.uint32(1)
++)
++
++process.recoPath = cms.Path(
++    process.goodMuons *
++    process.oneMuon *
++    process.goodElectrons *
++    process.oneElectron
++)
++
++# -------------------------
++# Gen-level selection (MC only)
++# -------------------------
++
++process.genMuons = cms.EDFilter("CandViewSelector",
++    src = cms.InputTag("prunedGenParticles"),
++    cut = cms.string("abs(pdgId) == 13 && status == 1 && pt > 10 && (isPromptFinalState || isDirectPromptTauDecayProductFinalState)")
++)
++
++process.genElectrons = cms.EDFilter("CandViewSelector",
++    src = cms.InputTag("prunedGenParticles"),
++    cut = cms.string("abs(pdgId) == 11 && status == 1 && pt > 10 && (isPromptFinalState || isDirectPromptTauDecayProductFinalState)")
++)
++
++process.oneGenMuon = cms.EDFilter("CandViewCountFilter",
++    src = cms.InputTag("genMuons"),
++    minNumber = cms.uint32(1)
++)
++
++process.oneGenElectron = cms.EDFilter("CandViewCountFilter",
++    src = cms.InputTag("genElectrons"),
++    minNumber = cms.uint32(1)
++)
++
++process.genPath = cms.Path(
++    process.genMuons *
++    process.oneGenMuon *
++    process.genElectrons *
++    process.oneGenElectron
++)
+ 
+ process.NANOAODSIMoutput = cms.OutputModule("NanoAODOutputModule",
+     compressionAlgorithm = cms.untracked.string('LZMA'),
+@@ -53,7 +110,10 @@
+         filterName = cms.untracked.string('')
+     ),
+     fileName = cms.untracked.string('file:nano_mc2018.root'),
+-    outputCommands = process.NANOAODSIMEventContent.outputCommands
++    outputCommands = process.NANOAODSIMEventContent.outputCommands,
++    SelectEvents=cms.untracked.PSet(
++        SelectEvents=cms.vstring("recoPath", "genPath")
++        )
+ )
+ 
+ # Additional output definition
+@@ -68,7 +128,7 @@
+ process.NANOAODSIMoutput_step = cms.EndPath(process.NANOAODSIMoutput)
+ 
+ # Schedule definition
+-process.schedule = cms.Schedule(process.nanoAOD_step,process.endjob_step,process.NANOAODSIMoutput_step)
++process.schedule = cms.Schedule(process.recoPath,process.genPath,process.nanoAOD_step,process.endjob_step,process.NANOAODSIMoutput_step)
+ from PhysicsTools.PatAlgos.tools.helpers import associatePatAlgosToolsTask
+ associatePatAlgosToolsTask(process)
+ 
